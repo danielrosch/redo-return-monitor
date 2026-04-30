@@ -1,3 +1,95 @@
+'use strict';
+
+const http  = require('http');
+const https = require('https');
+
+const CONFIG = {
+  storeId:   '68264bc68ee493594377c3f0',
+  apiSecret: 'P-t3FaBZ57b9KZw4xvajuzdvMARZv-qxM_lE2fm9UZ0',
+  fetchSec:   45,
+  refreshSec: 30,
+  dayWindow:  7,
+};
+
+const API_HOST = 'api.getredo.com';
+let cache = { count: null, open: null, delivered: null, ts: null, error: null };
+
+function fetchCountForStatus(status) {
+  return new Promise((resolve, reject) => {
+    let total = 0;
+    let pageNum = 0;
+
+    function fetchPage(cursor) {
+      pageNum++;
+      const since = new Date();
+      since.setDate(since.getDate() - CONFIG.dayWindow);
+      const updatedAtMin = since.toISOString();
+
+      let reqPath = `/v2.2/stores/${CONFIG.storeId}/returns`
+        + `?status=${encodeURIComponent(status)}`
+        + `&updated_at_min=${encodeURIComponent(updatedAtMin)}`;
+      if (cursor) reqPath += `&page-continue=${encodeURIComponent(cursor)}`;
+
+      const options = {
+        hostname: API_HOST,
+        path:     reqPath,
+        method:   'GET',
+        headers:  {
+          'Authorization': `Bearer ${CONFIG.apiSecret}`,
+          'Accept':        'application/json',
+          'X-Page-Size':   '500',
+        },
+      };
+
+      const req = https.request(options, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          if (res.statusCode !== 200) {
+            return reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
+          }
+          try {
+            const data    = JSON.parse(body);
+            const records = data.returns || [];
+            total += records.length;
+            const nextCursor = res.headers['x-page-next'] || null;
+            console.log(`  [${status} p${pageNum}] ${records.length} records | total: ${total} | next: ${nextCursor ? 'yes' : 'no'}`);
+            if (nextCursor) {
+              fetchPage(nextCursor);
+            } else {
+              resolve(total);
+            }
+          } catch (e) {
+            reject(new Error(`Parse error: ${e.message}`));
+          }
+        });
+      });
+      req.on('error', reject);
+      req.end();
+    }
+    fetchPage(null);
+  });
+}
+
+async function refreshCache() {
+  console.log(`\n[${new Date().toLocaleTimeString()}] Fetching from Redo API...`);
+  try {
+    const [openCount, deliveredCount] = await Promise.all([
+      fetchCountForStatus('open'),
+      fetchCountForStatus('delivered'),
+    ]);
+    const total = openCount + deliveredCount;
+    cache = { count: total, open: openCount, delivered: deliveredCount, ts: new Date().toISOString(), error: null };
+    console.log(`  open: ${openCount} | delivered: ${deliveredCount} | TOTAL: ${total}`);
+  } catch (err) {
+    cache.error = err.message;
+    console.error(`  ERROR: ${err.message}`);
+  }
+}
+
+refreshCache();
+setInterval(refreshCache, CONFIG.fetchSec * 1000);
+
 const HTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -213,98 +305,6 @@ function setStatus(state, text) {
 </body>
 </html>
 `;
-
-'use strict';
-
-const http  = require('http');
-const https = require('https');
-
-const CONFIG = {
-  storeId:   '68264bc68ee493594377c3f0',
-  apiSecret: 'P-t3FaBZ57b9KZw4xvajuzdvMARZv-qxM_lE2fm9UZ0',
-  fetchSec:   45,
-  refreshSec: 30,
-  dayWindow:  7,
-};
-
-const API_HOST = 'api.getredo.com';
-let cache = { count: null, open: null, delivered: null, ts: null, error: null };
-
-function fetchCountForStatus(status) {
-  return new Promise((resolve, reject) => {
-    let total = 0;
-    let pageNum = 0;
-
-    function fetchPage(cursor) {
-      pageNum++;
-      const since = new Date();
-      since.setDate(since.getDate() - CONFIG.dayWindow);
-      const updatedAtMin = since.toISOString();
-
-      let reqPath = `/v2.2/stores/${CONFIG.storeId}/returns`
-        + `?status=${encodeURIComponent(status)}`
-        + `&page-size=500`
-        + `&updated_at_min=${encodeURIComponent(updatedAtMin)}`;
-      if (cursor) reqPath += `&page-continue=${encodeURIComponent(cursor)}`;
-
-      const options = {
-        hostname: API_HOST,
-        path:     reqPath,
-        method:   'GET',
-        headers:  {
-          'Authorization': `Bearer ${CONFIG.apiSecret}`,
-          'Accept':        'application/json',
-        },
-      };
-
-      const req = https.request(options, (res) => {
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          if (res.statusCode !== 200) {
-            return reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
-          }
-          try {
-            const data    = JSON.parse(body);
-            const records = data.returns || [];
-            total += records.length;
-            const nextCursor = res.headers['x-page-next'] || null;
-            console.log(`  [${status} p${pageNum}] ${records.length} records | total: ${total} | next: ${nextCursor ? 'yes' : 'no'}`);
-            if (nextCursor) {
-              fetchPage(nextCursor);
-            } else {
-              resolve(total);
-            }
-          } catch (e) {
-            reject(new Error(`Parse error: ${e.message}`));
-          }
-        });
-      });
-      req.on('error', reject);
-      req.end();
-    }
-    fetchPage(null);
-  });
-}
-
-async function refreshCache() {
-  console.log(`\n[${new Date().toLocaleTimeString()}] Fetching from Redo API...`);
-  try {
-    const [openCount, deliveredCount] = await Promise.all([
-      fetchCountForStatus('open'),
-      fetchCountForStatus('delivered'),
-    ]);
-    const total = openCount + deliveredCount;
-    cache = { count: total, open: openCount, delivered: deliveredCount, ts: new Date().toISOString(), error: null };
-    console.log(`  open: ${openCount} | delivered: ${deliveredCount} | TOTAL: ${total}`);
-  } catch (err) {
-    cache.error = err.message;
-    console.error(`  ERROR: ${err.message}`);
-  }
-}
-
-refreshCache();
-setInterval(refreshCache, CONFIG.fetchSec * 1000);
 
 const PORT = process.env.PORT || 3031;
 
