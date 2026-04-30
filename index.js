@@ -8,26 +8,18 @@ const CONFIG = {
   apiSecret: 'P-t3FaBZ57b9KZw4xvajuzdvMARZv-qxM_lE2fm9UZ0',
   fetchSec:   45,
   refreshSec: 30,
-  dayWindow:  7,
 };
 
 const API_HOST = 'api.getredo.com';
 let cache = { count: null, open: null, delivered: null, ts: null, error: null };
+let isFetching = false; // prevent concurrent fetches
 
 function fetchCountForStatus(status) {
   return new Promise((resolve, reject) => {
     let total = 0;
 
     function fetchPage(cursor) {
-      const since = new Date();
-      since.setDate(since.getDate() - CONFIG.dayWindow);
-      const updatedAtMin = since.toISOString();
-
-      // page-size must be passed as a string value in the query string
-      let reqPath = `/v2.2/stores/${CONFIG.storeId}/returns`
-        + `?status=${encodeURIComponent(status)}`
-        + `&page-size=500`
-        + `&updated_at_min=${encodeURIComponent(updatedAtMin)}`;
+      let reqPath = `/v2.2/stores/${CONFIG.storeId}/returns?status=${encodeURIComponent(status)}`;
       if (cursor) reqPath += `&page-continue=${encodeURIComponent(cursor)}`;
 
       const options = {
@@ -37,7 +29,7 @@ function fetchCountForStatus(status) {
         headers:  {
           'Authorization': `Bearer ${CONFIG.apiSecret}`,
           'Accept':        'application/json',
-          'Content-Type':  'application/json',
+          'X-Page-Size':   '500',
         },
       };
 
@@ -72,6 +64,11 @@ function fetchCountForStatus(status) {
 }
 
 async function refreshCache() {
+  if (isFetching) {
+    console.log('  [skipped] previous fetch still running');
+    return;
+  }
+  isFetching = true;
   console.log(`\n[${new Date().toLocaleTimeString()}] Fetching from Redo API...`);
   try {
     const [openCount, deliveredCount] = await Promise.all([
@@ -80,10 +77,12 @@ async function refreshCache() {
     ]);
     const total = openCount + deliveredCount;
     cache = { count: total, open: openCount, delivered: deliveredCount, ts: new Date().toISOString(), error: null };
-    console.log(`  open: ${openCount} | delivered: ${deliveredCount} | TOTAL: ${total}`);
+    console.log(`  DONE: open: ${openCount} | delivered: ${deliveredCount} | TOTAL: ${total}`);
   } catch (err) {
     cache.error = err.message;
     console.error(`  ERROR: ${err.message}`);
+  } finally {
+    isFetching = false;
   }
 }
 
