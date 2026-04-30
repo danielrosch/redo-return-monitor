@@ -17,16 +17,16 @@ let cache = { count: null, open: null, delivered: null, ts: null, error: null };
 function fetchCountForStatus(status) {
   return new Promise((resolve, reject) => {
     let total = 0;
-    let pageNum = 0;
 
     function fetchPage(cursor) {
-      pageNum++;
       const since = new Date();
       since.setDate(since.getDate() - CONFIG.dayWindow);
       const updatedAtMin = since.toISOString();
 
+      // page-size must be passed as a string value in the query string
       let reqPath = `/v2.2/stores/${CONFIG.storeId}/returns`
         + `?status=${encodeURIComponent(status)}`
+        + `&page-size=500`
         + `&updated_at_min=${encodeURIComponent(updatedAtMin)}`;
       if (cursor) reqPath += `&page-continue=${encodeURIComponent(cursor)}`;
 
@@ -37,23 +37,23 @@ function fetchCountForStatus(status) {
         headers:  {
           'Authorization': `Bearer ${CONFIG.apiSecret}`,
           'Accept':        'application/json',
-          'X-Page-Size':   '500',
+          'Content-Type':  'application/json',
         },
       };
 
-      const req = https.request(options, (res) => {
+      const req = https.request(options, (apiRes) => {
         let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => {
-          if (res.statusCode !== 200) {
-            return reject(new Error(`HTTP ${res.statusCode}: ${body.slice(0, 200)}`));
+        apiRes.on('data', chunk => body += chunk);
+        apiRes.on('end', () => {
+          if (apiRes.statusCode !== 200) {
+            return reject(new Error(`HTTP ${apiRes.statusCode}: ${body.slice(0, 200)}`));
           }
           try {
             const data    = JSON.parse(body);
             const records = data.returns || [];
             total += records.length;
-            const nextCursor = res.headers['x-page-next'] || null;
-            console.log(`  [${status} p${pageNum}] ${records.length} records | total: ${total} | next: ${nextCursor ? 'yes' : 'no'}`);
+            const nextCursor = apiRes.headers['x-page-next'] || null;
+            console.log(`  [${status}] ${records.length} records | total: ${total} | more: ${nextCursor ? 'yes' : 'no'}`);
             if (nextCursor) {
               fetchPage(nextCursor);
             } else {
