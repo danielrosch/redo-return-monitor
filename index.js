@@ -43,6 +43,7 @@ function fetchCountForStatus(status) {
           try {
             const data    = JSON.parse(body);
             const records = data.returns || [];
+            if (total === 0 && records.length > 0) console.log('SAMPLE RECORD:', JSON.stringify(records[0], null, 2));
             total += records.length;
             const nextCursor = apiRes.headers['x-page-next'] || null;
             console.log(`  [${status}] ${records.length} records | total: ${total} | more: ${nextCursor ? 'yes' : 'no'}`);
