@@ -101,131 +101,91 @@ const HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Redo Returns Monitor</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:               #06080f;
-    --blue:             #00c8ff;
-    --blue-dim:         #0a5c75;
-    --blue-glow:        rgba(0,200,255,0.15);
-    --blue-glow-strong: rgba(0,200,255,0.35);
-    --amber:            #ffb800;
-    --red:              #ff3b3b;
-    --text:             #b0e8f5;
-    --text-dim:         #2a5060;
-    --border:           #0d2535;
-    --scanline:         rgba(0,0,0,0.18);
-    --font-mono:        'Share Tech Mono', monospace;
-    --font-display:     'Orbitron', sans-serif;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-mono); overflow: hidden; user-select: none; }
-  body::before { content:''; position:fixed; inset:0; background:repeating-linear-gradient(to bottom,transparent 0px,transparent 3px,var(--scanline) 3px,var(--scanline) 4px); pointer-events:none; z-index:9999; }
-  body::after  { content:''; position:fixed; inset:0; background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.7) 100%); pointer-events:none; z-index:9998; }
-
-  .corner { position:fixed; width:24px; height:24px; }
-  .corner-tl { top:12px;    left:12px;  border-top:1px solid var(--blue-dim);    border-left:1px solid var(--blue-dim); }
-  .corner-tr { top:12px;    right:12px; border-top:1px solid var(--blue-dim);    border-right:1px solid var(--blue-dim); }
-  .corner-bl { bottom:12px; left:12px;  border-bottom:1px solid var(--blue-dim); border-left:1px solid var(--blue-dim); }
-  .corner-br { bottom:12px; right:12px; border-bottom:1px solid var(--blue-dim); border-right:1px solid var(--blue-dim); }
-
-  .screen { height:100vh; display:grid; grid-template-rows:auto 1fr auto; padding:28px 40px 0; }
-
-  .header { display:flex; align-items:flex-start; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:16px; }
-  .sys-label   { font-family:var(--font-display); font-size:11px; letter-spacing:0.3em; color:var(--text-dim); text-transform:uppercase; margin-bottom:6px; }
-  .main-title  { font-family:var(--font-display); font-size:clamp(18px,2.5vw,28px); font-weight:700; letter-spacing:0.15em; color:var(--blue); text-shadow:0 0 20px var(--blue-glow-strong),0 0 40px var(--blue-glow); text-transform:uppercase; }
-  .clock       { font-family:var(--font-display); font-size:clamp(14px,2vw,22px); font-weight:700; color:var(--amber); text-shadow:0 0 16px rgba(255,184,0,0.4); letter-spacing:0.1em; text-align:right; }
-  .date-label  { font-size:11px; color:var(--text-dim); letter-spacing:0.2em; text-align:right; margin-top:4px; }
-
-  .main { display:flex; flex-direction:column; align-items:center; justify-content:center; }
-
-  .filter-pills { display:flex; gap:10px; margin-bottom:clamp(16px,3vh,40px); }
-  .tag-pill { font-size:11px; letter-spacing:0.25em; padding:4px 14px; border:1px solid var(--blue); color:var(--blue); background:rgba(0,200,255,0.07); box-shadow:0 0 8px var(--blue-glow); text-transform:uppercase; }
-
-  .count-wrapper { position:relative; display:flex; flex-direction:column; align-items:center; }
-  .count-label-above { font-family:var(--font-display); font-size:clamp(10px,1.3vw,14px); letter-spacing:0.5em; color:var(--text-dim); text-transform:uppercase; margin-bottom:4px; }
-
-  .count {
-    font-family:var(--font-display); font-size:clamp(140px,28vw,320px); font-weight:900;
-    line-height:0.85; color:var(--blue);
-    text-shadow:0 0 30px var(--blue-glow-strong),0 0 60px var(--blue-glow),0 0 120px rgba(0,200,255,0.08);
-    letter-spacing:-0.02em; transition:all 0.4s ease; min-width:3ch; text-align:center; position:relative;
-  }
-  .count::after { content:''; position:absolute; inset:-20px; border-radius:50%; background:radial-gradient(ellipse,var(--blue-glow) 0%,transparent 70%); animation:pulse 3s ease-in-out infinite; pointer-events:none; }
-  @keyframes pulse { 0%,100%{opacity:0.4;transform:scale(0.95)} 50%{opacity:1;transform:scale(1.05)} }
-  .count.loading     { opacity:0.3; }
-  .count.error-state { color:var(--red) !important; text-shadow:0 0 30px rgba(255,59,59,0.4) !important; }
-  .count.updated     { animation:flash 0.4s ease; }
-  @keyframes flash { 0%{opacity:0.4;transform:scale(0.97)} 60%{opacity:1;transform:scale(1.01)} 100%{opacity:1;transform:scale(1)} }
-
-  .count-label-below { font-family:var(--font-display); font-size:clamp(14px,2.2vw,26px); font-weight:700; letter-spacing:0.35em; color:var(--text); text-transform:uppercase; margin-top:12px; opacity:0.85; }
-
-  .sub-counts { display:flex; gap:40px; margin-top:20px; font-size:12px; letter-spacing:0.2em; color:var(--text-dim); text-transform:uppercase; }
-  .sub-counts span { color:var(--blue); font-size:16px; font-family:var(--font-display); font-weight:700; margin-left:8px; }
-
-  .error-msg { font-size:clamp(12px,1.5vw,16px); color:var(--red); letter-spacing:0.1em; text-align:center; margin-top:16px; max-width:500px; }
-  .error-msg.hidden { display:none; }
-
-  .footer { border-top:1px solid var(--border); padding:14px 0 20px; display:grid; grid-template-columns:1fr auto 1fr; align-items:center; font-size:11px; letter-spacing:0.2em; color:var(--text-dim); text-transform:uppercase; }
-  .footer-left  { display:flex; align-items:center; gap:14px; }
-  .footer-center { text-align:center; }
-  .footer-right { display:flex; align-items:center; justify-content:flex-end; gap:14px; }
-
-  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--blue); box-shadow:0 0 8px var(--blue); flex-shrink:0; }
-  .status-dot.error   { background:var(--red);   box-shadow:0 0 8px var(--red); }
-  .status-dot.loading { background:var(--amber); box-shadow:0 0 8px var(--amber); animation:blink 0.8s step-end infinite; }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
-
-  .refresh-bar { height:3px; background:var(--border); width:120px; position:relative; overflow:hidden; }
-  .refresh-bar-fill { position:absolute; left:0; top:0; bottom:0; background:var(--blue); box-shadow:0 0 6px var(--blue); width:0%; }
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;background:#0d0d1a;overflow:hidden;font-family:'Inter',sans-serif;}
+.board{width:100vw;height:100vh;background:radial-gradient(ellipse at 50% 40%,#1a1a3e 0%,#0d0d1a 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+.scanlines{position:absolute;inset:0;background:repeating-linear-gradient(to bottom,transparent 0px,transparent 2px,rgba(0,0,0,0.1) 2px,rgba(0,0,0,0.1) 4px);pointer-events:none;z-index:2;}
+.vignette{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.6) 100%);pointer-events:none;z-index:2;}
+.bar{position:absolute;left:0;right:0;height:8px;overflow:hidden;}
+.bar.top{top:0;}.bar.bottom{bottom:0;}
+.bar-fill{height:100%;width:300%;background:linear-gradient(90deg,#e94560 0%,#f5a623 16%,#fff 25%,#f5a623 33%,#e94560 50%,#f5a623 66%,#fff 75%,#f5a623 83%,#e94560 100%);animation:barslide 2s linear infinite;}
+.bar.bottom .bar-fill{animation-direction:reverse;}
+.side{position:absolute;top:0;bottom:0;width:4px;overflow:hidden;}
+.side.left{left:0;}.side.right{right:0;}
+.side-fill{width:100%;height:300%;background:linear-gradient(180deg,#e94560 0%,#f5a623 16%,#fff 25%,#f5a623 33%,#e94560 50%,#f5a623 66%,#fff 75%,#f5a623 83%,#e94560 100%);animation:vertslide 2s linear infinite;}
+.side.right .side-fill{animation-direction:reverse;}
+.corner{position:absolute;width:60px;height:60px;animation:cornerblink 2.5s ease-in-out infinite;}
+.corner.tl{top:20px;left:20px;border-top:3px solid #f5a623;border-left:3px solid #f5a623;}
+.corner.tr{top:20px;right:20px;border-top:3px solid #f5a623;border-right:3px solid #f5a623;animation-delay:0.6s;}
+.corner.bl{bottom:20px;left:20px;border-bottom:3px solid #f5a623;border-left:3px solid #f5a623;animation-delay:1.2s;}
+.corner.br{bottom:20px;right:20px;border-bottom:3px solid #f5a623;border-right:3px solid #f5a623;animation-delay:1.8s;}
+.ticker-wrap{position:absolute;top:12px;left:0;right:0;overflow:hidden;height:24px;z-index:4;}
+.ticker{display:flex;gap:48px;white-space:nowrap;animation:tickermove 18s linear infinite;}
+.ticker span{font-size:12px;font-weight:700;letter-spacing:0.25em;color:rgba(255,255,255,0.28);text-transform:uppercase;}
+.ticker span.hl{color:#f5a623;}
+.content{position:relative;z-index:5;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.brand{font-family:'Bebas Neue',sans-serif;font-size:clamp(24px,4vw,56px);letter-spacing:0.3em;color:#f5a623;text-transform:uppercase;margin-bottom:4px;}
+.subtitle{font-size:clamp(11px,1.2vw,16px);font-weight:700;letter-spacing:0.4em;color:rgba(255,255,255,0.3);text-transform:uppercase;margin-bottom:24px;}
+.score-row{display:flex;align-items:center;gap:24px;}
+.accent-line{width:5px;height:clamp(60px,8vh,100px);background:linear-gradient(180deg,transparent,#e94560,transparent);animation:accentpulse 1.5s ease-in-out infinite;}
+.accent-line.right{animation-delay:0.75s;}
+.score{font-family:'Bebas Neue',sans-serif;font-size:clamp(160px,32vw,380px);line-height:0.85;color:#fff;letter-spacing:-0.02em;animation:scoreglow 2.5s ease-in-out infinite 1.5s;}
+.label{font-family:'Bebas Neue',sans-serif;font-size:clamp(20px,3.5vw,48px);letter-spacing:0.35em;color:rgba(255,255,255,0.55);text-transform:uppercase;margin-top:10px;}
+.status-bar{position:absolute;bottom:20px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:14px;z-index:5;}
+.live-dot{width:9px;height:9px;border-radius:50%;background:#e94560;animation:livepulse 1.2s ease-in-out infinite;}
+.status-text{font-size:clamp(10px,1vw,13px);font-weight:700;letter-spacing:0.22em;color:rgba(255,255,255,0.25);text-transform:uppercase;}
+.status-sep{color:rgba(255,255,255,0.1);}
+.progress-track{position:absolute;bottom:10px;left:80px;right:80px;height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;z-index:5;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#e94560,#f5a623);border-radius:2px;width:0%;animation:progressgo 30s linear infinite;}
+.error-msg{font-size:clamp(14px,1.5vw,20px);color:#e94560;letter-spacing:0.1em;text-align:center;margin-top:20px;max-width:600px;}
+.error-msg.hidden{display:none;}
+@keyframes barslide{0%{transform:translateX(0)}100%{transform:translateX(-33.33%)}}
+@keyframes vertslide{0%{transform:translateY(0)}100%{transform:translateY(-33.33%)}}
+@keyframes cornerblink{0%,100%{opacity:1}50%{opacity:0.2}}
+@keyframes scoreglow{0%,100%{text-shadow:0 0 40px rgba(233,69,96,0.2)}50%{text-shadow:0 0 100px rgba(233,69,96,0.7),0 0 60px rgba(245,166,35,0.4)}}
+@keyframes accentpulse{0%,100%{opacity:0.3;transform:scaleY(0.6)}50%{opacity:1;transform:scaleY(1)}}
+@keyframes livepulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.6);opacity:0.5}}
+@keyframes tickermove{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes progressgo{0%{width:0%}100%{width:100%}}
 </style>
 </head>
 <body>
-<div class="corner corner-tl"></div>
-<div class="corner corner-tr"></div>
-<div class="corner corner-bl"></div>
-<div class="corner corner-br"></div>
-
-<div class="screen">
-  <div class="header">
-    <div>
-      <div class="sys-label">Redo · Warehouse Returns Display</div>
-      <div class="main-title">Returns Monitor</div>
+<div class="board">
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+  <div class="bar top"><div class="bar-fill"></div></div>
+  <div class="bar bottom"><div class="bar-fill"></div></div>
+  <div class="side left"><div class="side-fill"></div></div>
+  <div class="side right"><div class="side-fill"></div></div>
+  <div class="corner tl"></div>
+  <div class="corner tr"></div>
+  <div class="corner bl"></div>
+  <div class="corner br"></div>
+  <canvas id="pcanvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3;"></canvas>
+  <div class="ticker-wrap"><div class="ticker" id="ticker"></div></div>
+  <div class="content">
+    <div class="brand">Jungmaven</div>
+    <div class="subtitle">Warehouse Returns Display</div>
+    <div class="score-row">
+      <div class="accent-line"></div>
+      <div class="score" id="count-display">—</div>
+      <div class="accent-line right"></div>
     </div>
-    <div>
-      <div class="clock" id="clock">--:--:--</div>
-      <div class="date-label" id="date-label">---</div>
-    </div>
-  </div>
-
-  <div class="main">
-    <div class="filter-pills">
-      <div class="tag-pill">STATUS: DELIVERED</div>
-      <div class="tag-pill">LAST 30 DAYS</div>
-      <div class="tag-pill">EXCL. COMPLETE</div>
-    </div>
-    <div class="count-wrapper">
-      <div class="count-label-above">TOTAL COUNT</div>
-      <div class="count loading" id="count-display">—</div>
-      <div class="count-label-below">Returns to Process</div>
-    </div>
+    <div class="label">Returns to Process</div>
     <div class="error-msg hidden" id="error-msg"></div>
   </div>
-
-  <div class="footer">
-    <div class="footer-left">
-      <div class="status-dot loading" id="status-dot"></div>
-      <span id="status-text">INITIALIZING...</span>
-    </div>
-    <div class="footer-center">AUTO-REFRESH ACTIVE</div>
-    <div class="footer-right">
-      <span id="last-updated">LAST UPDATED: —</span>
-      <div class="refresh-bar"><div class="refresh-bar-fill" id="refresh-bar"></div></div>
-    </div>
+  <div class="status-bar">
+    <div class="live-dot" id="status-dot"></div>
+    <div class="status-text" id="status-text">INITIALIZING...</div>
+    <div class="status-sep">|</div>
+    <div class="status-text" id="clock">--:--:--</div>
+    <div class="status-sep">|</div>
+    <div class="status-text" id="last-updated">LAST UPDATED: —</div>
   </div>
+  <div class="progress-track"><div class="progress-fill" id="refresh-bar"></div></div>
 </div>
-
 <script>
 const REFRESH_INTERVAL = 30;
 let refreshTimer = null;
@@ -233,48 +193,116 @@ let currentCount = null;
 
 window.addEventListener('DOMContentLoaded', () => {
   startClock();
+  setupParticles();
+  setupTicker();
   startMonitor();
 });
 
 function startClock() {
   function tick() {
-    const now = new Date();
-    document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
-    document.getElementById('date-label').textContent = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' }).toUpperCase();
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', {hour12:false});
   }
   tick();
   setInterval(tick, 1000);
 }
 
+function setupTicker() {
+  const tk = document.getElementById('ticker');
+  const msgs = ['Returns to Process','\u25C6','Jungmaven Warehouse','\u25C6','Live Display Board','\u25C6','Returns to Process','\u25C6','Jungmaven Warehouse','\u25C6','Live Display Board','\u25C6'];
+  msgs.forEach(m => {
+    const s = document.createElement('span');
+    if (m === '\u25C6') s.className = 'hl';
+    s.textContent = m;
+    tk.appendChild(s);
+  });
+}
+
+function setupParticles() {
+  const canvas = document.getElementById('pcanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  const cols = ['#e94560','#f5a623','#e94560','#f5a623','#ffffff'];
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random()*window.innerWidth,
+      y: Math.random()*window.innerHeight,
+      vx: (Math.random()-0.5)*1.2,
+      vy: (Math.random()-0.5)*0.8,
+      r: Math.random()*5+2,
+      color: cols[Math.floor(Math.random()*cols.length)],
+      alpha: Math.random()*0.4+0.5,
+      alphaDir: Math.random()>0.5?1:-1,
+      alphaSpeed: Math.random()*0.01+0.005
+    });
+  }
+  function draw() {
+    ctx.clearRect(0,0,W,H);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      p.alpha += p.alphaDir * p.alphaSpeed;
+      if (p.alpha > 0.95) p.alphaDir = -1;
+      if (p.alpha < 0.35) p.alphaDir = 1;
+      if (p.x < -10) p.x = W+10;
+      if (p.x > W+10) p.x = -10;
+      if (p.y < -10) p.y = H+10;
+      if (p.y > H+10) p.y = -10;
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
 async function fetchAndDisplay() {
-  setStatus('loading', 'FETCHING DATA...');
   try {
     const res = await fetch('/count');
     if (!res.ok) throw new Error('Proxy HTTP ' + res.status);
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-
     const count = data.count;
     const changed = currentCount !== null && count !== currentCount;
-    currentCount = count;
-
     const el = document.getElementById('count-display');
-    el.textContent = count;
-    el.className = 'count' + (changed ? ' updated' : '');
-    if (changed) void el.offsetWidth;
-
-document.getElementById('error-msg').classList.add('hidden');
-    document.getElementById('last-updated').textContent = 'LAST UPDATED: ' + new Date().toLocaleTimeString('en-US', { hour12: false });
-    setStatus('ok', 'LIVE \\u00b7 CONNECTED');
-
+    if (currentCount === null) {
+      animateCountUp(count);
+    } else {
+      el.textContent = count;
+      if (changed) { el.style.animation='none'; void el.offsetWidth; el.style.animation='scoreglow 2.5s ease-in-out infinite'; }
+    }
+    currentCount = count;
+    document.getElementById('error-msg').classList.add('hidden');
+    document.getElementById('last-updated').textContent = 'UPDATED: ' + new Date().toLocaleTimeString('en-US',{hour12:false});
+    setStatus('ok', 'LIVE');
   } catch(err) {
-    document.getElementById('count-display').className = 'count error-state';
     document.getElementById('count-display').textContent = 'ERR';
     const msg = document.getElementById('error-msg');
     msg.classList.remove('hidden');
-    msg.textContent = '\\u26a0 ' + err.message;
+    msg.textContent = '\u26a0 ' + err.message;
     setStatus('error', 'CONNECTION ERROR');
   }
+}
+
+function animateCountUp(target) {
+  const el = document.getElementById('count-display');
+  const t0 = Date.now();
+  const dur = 2000;
+  function step() {
+    const p = Math.min((Date.now()-t0)/dur, 1);
+    const ease = 1-Math.pow(1-p, 4);
+    el.textContent = Math.round(ease * target);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
 }
 
 function startMonitor() {
@@ -296,15 +324,12 @@ function startProgressBar() {
 
 function setStatus(state, text) {
   const dot = document.getElementById('status-dot');
-  dot.className = 'status-dot';
-  if (state === 'loading') dot.classList.add('loading');
-  if (state === 'error')   dot.classList.add('error');
+  dot.style.background = state === 'error' ? '#ff3b3b' : '#e94560';
   document.getElementById('status-text').textContent = text;
 }
 </script>
 </body>
-</html>
-`;
+</html>`;
 
 const PORT = process.env.PORT || 3031;
 
