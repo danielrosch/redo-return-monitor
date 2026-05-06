@@ -43,7 +43,6 @@ function fetchCountForStatus(status) {
           try {
             const data    = JSON.parse(body);
             const records = data.returns || [];
-            if (total === 0 && records.length > 0) console.log('SAMPLE RECORD:', JSON.stringify(records[0], null, 2));
             total += records.length;
             const nextCursor = apiRes.headers['x-page-next'] || null;
             console.log(`  [${status}] ${records.length} records | total: ${total} | more: ${nextCursor ? 'yes' : 'no'}`);
@@ -72,13 +71,11 @@ async function refreshCache() {
   isFetching = true;
   console.log(`\n[${new Date().toLocaleTimeString()}] Fetching from Redo API...`);
   try {
-    const [openCount, deliveredCount] = await Promise.all([
-      fetchCountForStatus('open'),
-      fetchCountForStatus('delivered'),
-    ]);
-    const total = openCount + deliveredCount;
-    cache = { count: total, open: openCount, delivered: deliveredCount, ts: new Date().toISOString(), error: null };
-    console.log(`  DONE: open: ${openCount} | delivered: ${deliveredCount} | TOTAL: ${total}`);
+    // "delivered" = package physically at warehouse, not yet processed
+    // "open" = customer initiated but package not yet received — not actionable by warehouse
+    const deliveredCount = await fetchCountForStatus('delivered');
+    cache = { count: deliveredCount, open: 0, delivered: deliveredCount, ts: new Date().toISOString(), error: null };
+    console.log(`  DONE: delivered (at warehouse, needs processing): ${deliveredCount}`);
   } catch (err) {
     cache.error = err.message;
     console.error(`  ERROR: ${err.message}`);
@@ -196,17 +193,13 @@ const HTML = `<!DOCTYPE html>
 
   <div class="main">
     <div class="filter-pills">
-      <div class="tag-pill">STATUS: OPEN</div>
-      <div class="tag-pill">STATUS: DELIVERED</div>
+      <div class="tag-pill">DELIVERED TO WAREHOUSE</div>
+      <div class="tag-pill">AWAITING PROCESSING</div>
     </div>
     <div class="count-wrapper">
       <div class="count-label-above">TOTAL COUNT</div>
       <div class="count loading" id="count-display">—</div>
       <div class="count-label-below">Returns to Process</div>
-    </div>
-    <div class="sub-counts">
-      <div>OPEN <span id="sub-open">—</span></div>
-      <div>DELIVERED <span id="sub-delivered">—</span></div>
     </div>
     <div class="error-msg hidden" id="error-msg"></div>
   </div>
@@ -261,9 +254,7 @@ async function fetchAndDisplay() {
     el.className = 'count' + (changed ? ' updated' : '');
     if (changed) void el.offsetWidth;
 
-    document.getElementById('sub-open').textContent      = data.open;
-    document.getElementById('sub-delivered').textContent = data.delivered;
-    document.getElementById('error-msg').classList.add('hidden');
+document.getElementById('error-msg').classList.add('hidden');
     document.getElementById('last-updated').textContent = 'LAST UPDATED: ' + new Date().toLocaleTimeString('en-US', { hour12: false });
     setStatus('ok', 'LIVE \\u00b7 CONNECTED');
 
