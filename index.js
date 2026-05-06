@@ -18,6 +18,9 @@ function fetchCountForStatus(status) {
   return new Promise((resolve, reject) => {
     let total = 0;
 
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     function fetchPage(cursor) {
       let reqPath = `/v2.2/stores/${CONFIG.storeId}/returns?status=${encodeURIComponent(status)}`;
       if (cursor) reqPath += `&page-continue=${encodeURIComponent(cursor)}`;
@@ -43,9 +46,14 @@ function fetchCountForStatus(status) {
           try {
             const data    = JSON.parse(body);
             const records = data.returns || [];
-            total += records.length;
+            // Filter: created within last 30 days AND not complete
+            const filtered = records.filter(r =>
+              new Date(r.createdAt) >= thirtyDaysAgo &&
+              r.completeWithNoAction === false
+            );
+            total += filtered.length;
             const nextCursor = apiRes.headers['x-page-next'] || null;
-            console.log(`  [${status}] ${records.length} records | total: ${total} | more: ${nextCursor ? 'yes' : 'no'}`);
+            console.log(`  [${status}] ${records.length} records (${filtered.length} match filter) | total: ${total} | more: ${nextCursor ? 'yes' : 'no'}`);
             if (nextCursor) {
               fetchPage(nextCursor);
             } else {
@@ -193,8 +201,9 @@ const HTML = `<!DOCTYPE html>
 
   <div class="main">
     <div class="filter-pills">
-      <div class="tag-pill">DELIVERED TO WAREHOUSE</div>
-      <div class="tag-pill">AWAITING PROCESSING</div>
+      <div class="tag-pill">STATUS: DELIVERED</div>
+      <div class="tag-pill">LAST 30 DAYS</div>
+      <div class="tag-pill">EXCL. COMPLETE</div>
     </div>
     <div class="count-wrapper">
       <div class="count-label-above">TOTAL COUNT</div>
