@@ -220,34 +220,32 @@ function setupTicker() {
 function setupParticles() {
   const canvas = document.getElementById('pcanvas');
   const ctx = canvas.getContext('2d');
-  let W, H, particles = [];
+  let W, H;
   function resize() {
     W = canvas.width = window.innerWidth;
     H = canvas.height = window.innerHeight;
   }
   resize();
   window.addEventListener('resize', resize);
-  const cols = ['#e94560','#f5a623','#e94560','#f5a623','#ffffff'];
-  for (let i = 0; i < 60; i++) {
+  const cols = ['#e94560','#f5a623','#ffffff'];
+  const particles = [];
+  for (let i = 0; i < 25; i++) {
     particles.push({
-      x: Math.random()*window.innerWidth,
-      y: Math.random()*window.innerHeight,
-      vx: (Math.random()-0.5)*1.2,
-      vy: (Math.random()-0.5)*0.8,
-      r: Math.random()*5+2,
+      x: Math.random()*W, y: Math.random()*H,
+      vx: (Math.random()-0.5)*0.8, vy: (Math.random()-0.5)*0.5,
+      r: Math.random()*4+2,
       color: cols[Math.floor(Math.random()*cols.length)],
-      alpha: Math.random()*0.4+0.5,
-      alphaDir: Math.random()>0.5?1:-1,
-      alphaSpeed: Math.random()*0.01+0.005
+      alpha: Math.random()*0.3+0.5
     });
   }
-  function draw() {
+  let last = 0;
+  function draw(ts) {
+    requestAnimationFrame(draw);
+    if (ts - last < 50) return;
+    last = ts;
     ctx.clearRect(0,0,W,H);
     particles.forEach(p => {
       p.x += p.vx; p.y += p.vy;
-      p.alpha += p.alphaDir * p.alphaSpeed;
-      if (p.alpha > 0.95) p.alphaDir = -1;
-      if (p.alpha < 0.35) p.alphaDir = 1;
       if (p.x < -10) p.x = W+10;
       if (p.x > W+10) p.x = -10;
       if (p.y < -10) p.y = H+10;
@@ -259,9 +257,8 @@ function setupParticles() {
       ctx.fill();
     });
     ctx.globalAlpha = 1;
-    requestAnimationFrame(draw);
   }
-  draw();
+  requestAnimationFrame(draw);
 }
 
 async function fetchAndDisplay() {
